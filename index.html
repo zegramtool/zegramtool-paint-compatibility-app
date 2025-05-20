@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline';">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>塗料互換表検索アプリ</title>
@@ -133,3 +134,28 @@
     @media (max-width: 639px) {
       .hidden { display: none; }
     }
+  </style>
+  <!-- Tailwind CDNを削除し、スタイルを直接埋め込みました -->
+</head>
+<body>
+  <div id="root"></div>
+  
+  <!-- サンプルデータを追加 -->
+  <script>
+    // GitHubにCSVファイルがない場合のサンプルデータ
+    window.sampleData = `番号,カテゴリ,関西ペイント品番,関西ペイント色名,ロックペイント品番,ロックペイント色名,日本ペイント品番,日本ペイント色名,イサム塗料品番,イサム塗料色名
+1,レッド系,KP-101,スーパーレッド,RP-101,ファイヤーレッド,NP-101,ブライトレッド,IP-101,カーディナルレッド
+2,ブルー系,KP-201,オーシャンブルー,RP-201,コバルトブルー,NP-201,スカイブルー,IP-201,マリンブルー
+3,グリーン系,KP-301,フォレストグリーン,RP-301,エメラルドグリーン,NP-301,ジャングルグリーン,IP-301,ミントグリーン
+4,イエロー・オレンジ系,KP-401,サンシャインイエロー,RP-401,ブライトイエロー,NP-401,レモンイエロー,IP-401,シトラスイエロー
+5,ブラック系,KP-501,ジェットブラック,RP-501,スーパーブラック,NP-501,ディープブラック,IP-501,カーボンブラック
+6,ホワイト系,KP-601,パールホワイト,RP-601,スノーホワイト,NP-601,ピュアホワイト,IP-601,クリスタルホワイト
+7,メタリックベース系,KP-701,シルバーメタリック,RP-701,プラチナシルバー,NP-701,シルキーシルバー,IP-701,ダイヤモンドシルバー
+8,パール系,KP-801,ホワイトパール,RP-801,シャンパンパール,NP-801,シルクパール,IP-801,オーロラパール
+9,バイオレット・マルーン系,KP-901,ロイヤルパープル,RP-901,ディープパープル,NP-901,ワインレッド,IP-901,バーガンディ
+10,ブラウン系,KP-1001,モカブラウン,RP-1001,チョコレートブラウン,NP-1001,ココアブラウン,IP-1001,キャラメルブラウン`;
+  </script>
+  
+  <script src="./app.js"></script>
+</body>
+</html>
