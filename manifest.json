@@ -1,0 +1,21 @@
+{
+  "name": "塗料互換表検索アプリ",
+  "short_name": "塗料互換表",
+  "description": "関西ペイント、ロックペイント、日本ペイント、イサム塗料の塗料互換表を簡単に検索できるアプリです",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
