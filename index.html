@@ -61,8 +61,9 @@
         </div>
         <div id="file-status" class="text-sm">
           <div class="text-gray-600">
-            <p>📋 「塗料互換.csv」ファイルを選択してください</p>
+            <p>📋 CSVファイルを選択してください</p>
             <p class="text-xs mt-1">対応形式: CSV (.csv)</p>
+            <p class="text-xs text-blue-600">💡 新形式では全メーカーの原色特性に対応しています</p>
           </div>
         </div>
       </div>
@@ -306,19 +307,19 @@
           companyName = '関西ペイント';
           colorName = item['関西ペイント色名'];
           productCode = item['関西ペイント品番'];
-          characteristics = null;
+          characteristics = item['関西ペイント　原色特性'];
           break;
         case 'nippon':
           companyName = '日本ペイント';
           colorName = item['日本ペイント色名'];
           productCode = item['日本ペイント品番'];
-          characteristics = null;
+          characteristics = item['日本ペイント　原色特性'];
           break;
         case 'isamu':
           companyName = 'イサム塗料';
           colorName = item['イサム塗料色名'];
           productCode = item['イサム塗料品番'];
-          characteristics = null;
+          characteristics = item['イサム塗料　原色特性'];
           break;
       }
       
@@ -364,19 +365,23 @@
       const compatibleColors = [];
       if (item['関西ペイント色名'] && company !== 'kansai') {
         const kansaiCode = item['関西ペイント品番'] !== null && item['関西ペイント品番'] !== undefined ? String(item['関西ペイント品番']) : '';
-        compatibleColors.push(`関西ペイント: ${item['関西ペイント色名']} (${kansaiCode})`);
+        const kansaiChar = item['関西ペイント　原色特性'] ? ' ⭐' : '';
+        compatibleColors.push(`関西ペイント: ${item['関西ペイント色名']} (${kansaiCode})${kansaiChar}`);
       }
       if (item['ロックペイント色名'] && company !== 'rock') {
         const rockCode = item['ロックペイント品番'] !== null && item['ロックペイント品番'] !== undefined ? String(item['ロックペイント品番']) : '';
-        compatibleColors.push(`ロックペイント: ${item['ロックペイント色名']} (${rockCode})`);
+        const rockChar = item['ロックペイント　原色特性'] ? ' ⭐' : '';
+        compatibleColors.push(`ロックペイント: ${item['ロックペイント色名']} (${rockCode})${rockChar}`);
       }
       if (item['日本ペイント色名'] && company !== 'nippon') {
         const nipponCode = item['日本ペイント品番'] !== null && item['日本ペイント品番'] !== undefined ? String(item['日本ペイント品番']) : '';
-        compatibleColors.push(`日本ペイント: ${item['日本ペイント色名']} (${nipponCode})`);
+        const nipponChar = item['日本ペイント　原色特性'] ? ' ⭐' : '';
+        compatibleColors.push(`日本ペイント: ${item['日本ペイント色名']} (${nipponCode})${nipponChar}`);
       }
       if (item['イサム塗料色名'] && company !== 'isamu') {
         const isamuCode = item['イサム塗料品番'] !== null && item['イサム塗料品番'] !== undefined ? String(item['イサム塗料品番']) : '';
-        compatibleColors.push(`イサム塗料: ${item['イサム塗料色名']} (${isamuCode})`);
+        const isamuChar = item['イサム塗料　原色特性'] ? ' ⭐' : '';
+        compatibleColors.push(`イサム塗料: ${item['イサム塗料色名']} (${isamuCode})${isamuChar}`);
       }
       
       if (compatibleColors.length > 0) {
@@ -387,6 +392,7 @@
             <div class="text-sm text-gray-700 space-y-1">
               ${compatibleList}
             </div>
+            <p class="text-xs text-gray-500 mt-2">⭐ = 原色特性データあり</p>
           </div>
         `;
       }
@@ -452,28 +458,32 @@
       }
       
       function createColorElement(item, index, company, mobile = false) {
-        let companyName, colorName, productCode;
+        let companyName, colorName, productCode, characteristics;
         
         switch (company) {
           case 'kansai':
             companyName = '関西';
             colorName = item['関西ペイント色名'];
             productCode = item['関西ペイント品番'];
+            characteristics = item['関西ペイント　原色特性'];
             break;
           case 'rock':
             companyName = 'ロック';
             colorName = item['ロックペイント色名'];
             productCode = item['ロックペイント品番'];
+            characteristics = item['ロックペイント　原色特性'];
             break;
           case 'nippon':
             companyName = '日本';
             colorName = item['日本ペイント色名'];
             productCode = item['日本ペイント品番'];
+            characteristics = item['日本ペイント　原色特性'];
             break;
           case 'isamu':
             companyName = 'イサム';
             colorName = item['イサム塗料色名'];
             productCode = item['イサム塗料品番'];
+            characteristics = item['イサム塗料　原色特性'];
             break;
         }
         
@@ -484,6 +494,10 @@
         const displayCode = productCode !== null && productCode !== undefined ? String(productCode) : '';
         const displayName = colorName || '';
         
+        // 原色特性があるかどうかのインジケーター
+        const hasCharacteristics = characteristics && characteristics.trim() !== '';
+        const characteristicsIcon = hasCharacteristics ? '<span class="text-blue-500 text-xs">⭐</span>' : '';
+        
         const colorClass = getColorFromName(colorName, item['カテゴリ']);
         const clickHandler = `handleColorClick(${index}, '${company}')`;
         
@@ -491,8 +505,11 @@
           return `
             <div class="flex items-center p-2 bg-gray-50 rounded clickable-color" onclick="${clickHandler}">
               <div class="w-6 h-6 rounded-full mr-2 ${colorClass}"></div>
-              <div>
-                <div class="font-medium">${companyName}: ${displayCode}</div>
+              <div class="flex-1">
+                <div class="font-medium flex items-center gap-1">
+                  ${companyName}: ${displayCode}
+                  ${characteristicsIcon}
+                </div>
                 <div class="text-xs text-gray-500">${displayName}</div>
               </div>
             </div>
@@ -502,7 +519,10 @@
             <div class="flex items-center clickable-color" onclick="${clickHandler}">
               <div class="w-6 h-6 rounded-full mr-2 ${colorClass}"></div>
               <div>
-                <div class="font-medium">${displayCode}</div>
+                <div class="font-medium flex items-center gap-1">
+                  ${displayCode}
+                  ${characteristicsIcon}
+                </div>
                 <div class="text-sm text-gray-500">${displayName}</div>
               </div>
             </div>
