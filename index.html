@@ -176,12 +176,19 @@
           let value = values[index] || '';
           value = value.trim().replace(/\r$/, '');
           
-          // 数値変換を試行
-          if (value !== '' && !isNaN(value) && !isNaN(parseFloat(value))) {
-            row[header] = parseFloat(value);
-          } else if (value === '') {
+          // 品番フィールドは文字列として保持（先頭ゼロを維持）
+          const isProductCodeField = header.includes('品番');
+          
+          if (value === '') {
             row[header] = null;
+          } else if (isProductCodeField) {
+            // 品番フィールドは文字列として保持
+            row[header] = value;
+          } else if (header === '番号' && !isNaN(value) && !isNaN(parseFloat(value))) {
+            // 番号フィールドのみ数値変換
+            row[header] = parseFloat(value);
           } else {
+            // その他は文字列として保持
             row[header] = value;
           }
         });
