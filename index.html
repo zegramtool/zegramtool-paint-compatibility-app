@@ -332,7 +332,8 @@
         // デバッグ用：グローバル変数に保存
         window.debugData = data;
         
-        renderApp();
+        // renderApp()の代わりに、カスタムイベントを発火
+        window.dispatchEvent(new CustomEvent('dataLoaded'));
         
       } catch (error) {
         console.error('CSV解析エラー:', error);
@@ -751,6 +752,12 @@
       
       // グローバル関数として登録
       window.handleColorClick = handleColorClick;
+      
+      // データ読み込み完了時のイベントリスナー
+      window.addEventListener('dataLoaded', function() {
+        console.log('データ読み込み完了イベントを受信');
+        renderApp();
+      });
       
       // 最初の読み込み時にもloadCSVを呼び出す
       loadCSV();
