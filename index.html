@@ -1,185 +1,636 @@
- companyCodeField, companyNameField;
-            
-            switch (selectedCompany) {
-              case 'kansai':
-                companyCodeField = '関西ペイント品番';
-                companyNameField = '関西ペイント色名';
-                break;
-              case 'rock':
-                companyCodeField = 'ロックペイント品番';
-                companyNameField = 'ロックペイント色名';
-                break;
-              case 'nippon':
-                companyCodeField = '日本ペイント品番';
-                companyNameField = '日本ペイント色名';
-                break;
-              case 'isamu':
-                companyCodeField = 'イサム塗料品番';
-                companyNameField = 'イサム塗料色名';
-                break;
-            }
-            
-            filtered = filtered.filter(item => 
-              item[companyCodeField] || item[companyNameField]
-            );
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>塗料互換表検索</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .color-red { background-color: #ef4444; }
+    .color-orange { background-color: #f97316; }
+    .color-yellow { background-color: #eab308; }
+    .color-green { background-color: #22c55e; }
+    .color-blue { background-color: #3b82f6; }
+    .color-purple { background-color: #a855f7; }
+    .color-pink { background-color: #ec4899; }
+    .color-brown { background-color: #a16207; }
+    .color-gray { background-color: #6b7280; }
+    .color-black { background-color: #1f2937; }
+    .color-white { background-color: #f9fafb; border: 1px solid #d1d5db; }
+    .color-default { background-color: #e5e7eb; }
+    
+    /* モーダル用のスタイル */
+    .modal-overlay {
+      backdrop-filter: blur(4px);
+    }
+    
+    .modal-content {
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    /* クリック可能な要素のスタイル */
+    .clickable-color {
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .clickable-color:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="container mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">塗料互換表検索</h1>
+    
+    <!-- ファイル読み込み -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-4">📁 CSVファイルを選択</h2>
+      <div class="space-y-4">
+        <div>
+          <input type="file" id="csv-file" accept=".csv" 
+                 class="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100">
+        </div>
+        <div id="file-status" class="text-sm">
+          <div class="text-gray-600">
+            <p>📋 「塗料互換.csv」ファイルを選択してください</p>
+            <p class="text-xs mt-1">対応形式: CSV (.csv)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 検索フィルター -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label for="search" class="block text-sm font-medium text-gray-700 mb-2">検索</label>
+          <input type="text" id="search" placeholder="品番・色名・カテゴリを検索..." 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        
+        <div>
+          <label for="category" class="block text-sm font-medium text-gray-700 mb-2">カテゴリ</label>
+          <select id="category" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="company" class="block text-sm font-medium text-gray-700 mb-2">メーカー</label>
+          <select id="company" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">すべて</option>
+            <option value="kansai">関西ペイント</option>
+            <option value="rock">ロックペイント</option>
+            <option value="nippon">日本ペイント</option>
+            <option value="isamu">イサム塗料</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 結果カウント -->
+    <div class="mb-4">
+      <span id="result-count" class="text-lg font-semibold text-gray-700">検索結果: 0 件</span>
+    </div>
+    
+    <!-- 結果なしメッセージ -->
+    <div id="no-results" class="hidden bg-white rounded-lg shadow-md p-8 text-center">
+      <p class="text-gray-500 text-lg">該当する結果がありません</p>
+    </div>
+    
+    <!-- モバイル表示 -->
+    <div id="mobile-results" class="md:hidden space-y-4"></div>
+    
+    <!-- PC表示 -->
+    <div id="desktop-container" class="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">番号</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">カテゴリ</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">関西ペイント</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ロックペイント</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日本ペイント</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">イサム塗料</th>
+            </tr>
+          </thead>
+          <tbody id="result-table" class="bg-white divide-y divide-gray-200">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 詳細モーダル -->
+  <div id="detail-modal" class="fixed inset-0 bg-black bg-opacity-50 modal-overlay hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="bg-white rounded-lg shadow-xl modal-content w-full max-w-md">
+        <div class="flex justify-between items-center p-6 border-b">
+          <h3 id="modal-title" class="text-lg font-semibold text-gray-800">色の詳細情報</h3>
+          <button id="close-modal" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+        </div>
+        <div class="p-6">
+          <div id="modal-content" class="space-y-4">
+            <!-- 動的に生成される内容 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let data = [];
+    let currentFilteredData = [];
+    
+    // CSVデータを読み込み
+    async function loadCSV() {
+      const fileInput = document.getElementById('csv-file');
+      const statusDiv = document.getElementById('file-status');
+      
+      try {
+        // ファイル選択があるかチェック
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+          statusDiv.innerHTML = '<div class="text-blue-600">ファイルを読み込み中...</div>';
+          
+          const file = fileInput.files[0];
+          console.log('選択されたファイル:', file.name, 'サイズ:', file.size, 'bytes');
+          
+          const csvText = await file.text();
+          console.log('ファイル内容の最初の部分:', csvText.substring(0, 200));
+          
+          if (!csvText.trim()) {
+            throw new Error('ファイルが空です');
           }
           
-          // 検索語でフィルタリング
-          if (searchTerm) {
-            filtered = filtered.filter(item => {
-              return (
-                (item['カテゴリ'] && String(item['カテゴリ']).toLowerCase().includes(searchTerm)) ||
-                (item['関西ペイント品番'] && String(item['関西ペイント品番']).toLowerCase().includes(searchTerm)) ||
-                (item['関西ペイント色名'] && String(item['関西ペイント色名']).toLowerCase().includes(searchTerm)) ||
-                (item['ロックペイント品番'] && String(item['ロックペイント品番']).toLowerCase().includes(searchTerm)) ||
-                (item['ロックペイント色名'] && String(item['ロックペイント色名']).toLowerCase().includes(searchTerm)) ||
-                (item['日本ペイント品番'] && String(item['日本ペイント品番']).toLowerCase().includes(searchTerm)) ||
-                (item['日本ペイント色名'] && String(item['日本ペイント色名']).toLowerCase().includes(searchTerm)) ||
-                (item['イサム塗料品番'] && String(item['イサム塗料品番']).toLowerCase().includes(searchTerm)) ||
-                (item['イサム塗料色名'] && String(item['イサム塗料色名']).toLowerCase().includes(searchTerm)) ||
-                (item['番号'] && String(item['番号']).toLowerCase().includes(searchTerm))
-              );
-            });
-          }
-          
-          // 結果を表示
-          resultCount.textContent = `検索結果: ${filtered.length} 件`;
-          
-          if (filtered.length === 0) {
-            if (mobile && mobileResults) mobileResults.innerHTML = '';
-            if (resultTable) resultTable.innerHTML = '';
-            noResults.classList.remove('hidden');
-          } else {
-            noResults.classList.add('hidden');
-            
-            if (mobile && mobileResults) {
-              mobileResults.innerHTML = filtered.map((item, index) => `
-                <div class="bg-white rounded-lg shadow p-3 border border-gray-100">
-                  <div class="flex justify-between items-start mb-2">
-                    <div class="text-sm text-gray-500">${item['カテゴリ'] || ''}</div>
-                    <div class="text-xs bg-gray-100 rounded px-2 py-1">No.${item['番号'] || ''}</div>
-                  </div>
-                  
-                  <div class="grid grid-cols-1 gap-2">
-                    ${item['関西ペイント品番'] ? `
-                      <div class="flex items-center p-2 bg-gray-50 rounded">
-                        <div class="w-6 h-6 rounded-full mr-2 ${getColorFromName(item['関西ペイント色名'], item['カテゴリ'])}"></div>
-                        <div>
-                          <div class="font-medium">関西: ${item['関西ペイント品番']}</div>
-                          <div class="text-xs text-gray-500">${item['関西ペイント色名'] || ''}</div>
-                        </div>
-                      </div>
-                    ` : ''}
-                    
-                    ${item['ロックペイント品番'] ? `
-                      <div class="flex items-center p-2 bg-gray-50 rounded">
-                        <div class="w-6 h-6 rounded-full mr-2 ${getColorFromName(item['ロックペイント色名'], item['カテゴリ'])}"></div>
-                        <div>
-                          <div class="font-medium">ロック: ${item['ロックペイント品番']}</div>
-                          <div class="text-xs text-gray-500">${item['ロックペイント色名'] || ''}</div>
-                        </div>
-                      </div>
-                    ` : ''}
-                    
-                    ${item['日本ペイント品番'] ? `
-                      <div class="flex items-center p-2 bg-gray-50 rounded">
-                        <div class="w-6 h-6 rounded-full mr-2 ${getColorFromName(item['日本ペイント色名'], item['カテゴリ'])}"></div>
-                        <div>
-                          <div class="font-medium">日本: ${item['日本ペイント品番']}</div>
-                          <div class="text-xs text-gray-500">${item['日本ペイント色名'] || ''}</div>
-                        </div>
-                      </div>
-                    ` : ''}
-                    
-                    ${item['イサム塗料品番'] ? `
-                      <div class="flex items-center p-2 bg-gray-50 rounded">
-                        <div class="w-6 h-6 rounded-full mr-2 ${getColorFromName(item['イサム塗料色名'], item['カテゴリ'])}"></div>
-                        <div>
-                          <div class="font-medium">イサム: ${item['イサム塗料品番']}</div>
-                          <div class="text-xs text-gray-500">${item['イサム塗料色名'] || ''}</div>
-                        </div>
-                      </div>
-                    ` : ''}
-                  </div>
-                </div>
-              `).join('')}
-            } else if (resultTable) {
-              resultTable.innerHTML = filtered.map((item, index) => `
-                <tr class="hover:bg-gray-50">
-                  <td class="px-4 py-2 whitespace-nowrap">${item['番号'] || ''}</td>
-                  <td class="px-4 py-2 whitespace-nowrap">${item['カテゴリ'] || ''}</td>
-                  
-                  <td class="px-4 py-2">
-                    <div class="flex items-center">
-                      ${item['関西ペイント品番'] ? `
-                        <div class="w-6 h-6 rounded-full mr-2 ${getColorFromName(item['関西ペイント色名'], item['カテゴリ'])}"></div>
-                        <div>
-                          <div class="font-medium">${item['関西ペイント品番']}</div>
-                          <div class="text-sm text-gray-500">${item['関西ペイント色名'] || ''}</div>
-                        </div>
-                      ` : ''}
-                    </div>
-                  </td>
-                  
-                  <td class="px-4 py-2">
-                    <div class="flex items-center">
-                      ${item['ロックペイント品番'] ? `
-                        <div class="w-6 h-6 rounded-full mr-2 ${getColorFromName(item['ロックペイント色名'], item['カテゴリ'])}"></div>
-                        <div>
-                          <div class="font-medium">${item['ロックペイント品番']}</div>
-                          <div class="text-sm text-gray-500">${item['ロックペイント色名'] || ''}</div>
-                        </div>
-                      ` : ''}
-                    </div>
-                  </td>
-                  
-                  <td class="px-4 py-2">
-                    <div class="flex items-center">
-                      ${item['日本ペイント品番'] ? `
-                        <div class="w-6 h-6 rounded-full mr-2 ${getColorFromName(item['日本ペイント色名'], item['カテゴリ'])}"></div>
-                        <div>
-                          <div class="font-medium">${item['日本ペイント品番']}</div>
-                          <div class="text-sm text-gray-500">${item['日本ペイント色名'] || ''}</div>
-                        </div>
-                      ` : ''}
-                    </div>
-                  </td>
-                  
-                  <td class="px-4 py-2">
-                    <div class="flex items-center">
-                      ${item['イサム塗料品番'] ? `
-                        <div class="w-6 h-6 rounded-full mr-2 ${getColorFromName(item['イサム塗料色名'], item['カテゴリ'])}"></div>
-                        <div>
-                          <div class="font-medium">${item['イサム塗料品番']}</div>
-                          <div class="text-sm text-gray-500">${item['イサム塗料色名'] || ''}</div>
-                        </div>
-                      ` : ''}
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
-            }
-          }
+          parseCSV(csvText);
+          return;
         }
         
-        // イベントリスナーの設定
-        if (searchInput) searchInput.addEventListener('input', filterData);
-        if (categoryFilter) categoryFilter.addEventListener('change', filterData);
-        if (companyFilter) companyFilter.addEventListener('change', filterData);
+        // ファイル選択がない場合の処理
+        statusDiv.innerHTML = '<div class="text-yellow-600">CSVファイルを選択してください</div>';
         
-        // ウィンドウサイズ変更時の処理
-        window.addEventListener('resize', () => {
-          const currentMobile = isMobileView();
-          if (mobile !== currentMobile) {
-            // モバイル表示/PC表示の切り替えが発生した場合に再レンダリング
-            renderApp(data);
+      } catch (error) {
+        console.error('CSVファイルの読み込みエラー:', error);
+        statusDiv.innerHTML = `
+          <div class="text-red-600">
+            <p><strong>エラー:</strong> ${error.message}</p>
+            <p class="mt-2">以下を確認してください：</p>
+            <ul class="list-disc list-inside text-sm mt-1">
+              <li>ファイルが選択されているか</li>
+              <li>ファイルがCSV形式か</li>
+              <li>ファイルが破損していないか</li>
+            </ul>
+          </div>
+        `;
+      }
+    }
+    
+    function parseCSV(csvText) {
+      const statusDiv = document.getElementById('file-status');
+      
+      try {
+        statusDiv.innerHTML = '<div class="text-blue-600">データを解析中...</div>';
+        
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (header) => {
+            // ヘッダーの前後の空白を削除
+            return header.trim();
+          },
+          complete: function(results) {
+            console.log('Papa Parse結果:', results);
+            
+            if (results.errors && results.errors.length > 0) {
+              console.warn('解析警告:', results.errors);
+            }
+            
+            if (!results.data || results.data.length === 0) {
+              throw new Error('有効なデータが見つかりません');
+            }
+            
+            // データをフィルタリング（番号があるもののみ）
+            const validData = results.data.filter(row => {
+              return row['番号'] !== null && row['番号'] !== undefined && row['番号'] !== '';
+            });
+            
+            console.log('全データ数:', results.data.length);
+            console.log('有効データ数:', validData.length);
+            console.log('サンプルデータ:', validData.slice(0, 3));
+            
+            if (validData.length === 0) {
+              throw new Error('「番号」フィールドを持つ有効なデータが見つかりません');
+            }
+            
+            data = validData;
+            statusDiv.innerHTML = `
+              <div class="text-green-600">
+                <p><strong>読み込み完了!</strong></p>
+                <p>データ件数: ${data.length} 件</p>
+              </div>
+            `;
+            
+            renderApp();
+          },
+          error: function(error) {
+            throw new Error(`CSV解析エラー: ${error.message}`);
           }
         });
+        
+      } catch (error) {
+        console.error('CSV解析エラー:', error);
+        statusDiv.innerHTML = `
+          <div class="text-red-600">
+            <p><strong>解析エラー:</strong> ${error.message}</p>
+          </div>
+        `;
+      }
+    }
+    
+    // 色名から色を判定する関数
+    function getColorFromName(colorName, category) {
+      if (!colorName) return 'color-default';
+      
+      const name = colorName.toLowerCase();
+      const cat = category ? category.toLowerCase() : '';
+      
+      if (name.includes('レッド') || name.includes('赤') || name.includes('マルーン') || cat.includes('レッド')) return 'color-red';
+      if (name.includes('オレンジ') || name.includes('橙')) return 'color-orange';
+      if (name.includes('イエロー') || name.includes('黄') || cat.includes('イエロー')) return 'color-yellow';
+      if (name.includes('グリーン') || name.includes('緑') || cat.includes('グリーン')) return 'color-green';
+      if (name.includes('ブルー') || name.includes('青') || cat.includes('ブルー')) return 'color-blue';
+      if (name.includes('バイオレット') || name.includes('紫') || name.includes('パープル') || cat.includes('バイオレット')) return 'color-purple';
+      if (name.includes('ピンク') || cat.includes('ピンク')) return 'color-pink';
+      if (name.includes('ブラウン') || name.includes('茶') || name.includes('ブロンズ')) return 'color-brown';
+      if (name.includes('グレー') || name.includes('グレイ') || name.includes('灰')) return 'color-gray';
+      if (name.includes('ブラック') || name.includes('黒')) return 'color-black';
+      if (name.includes('ホワイト') || name.includes('白')) return 'color-white';
+      
+      return 'color-default';
+    }
+    
+    // モバイル表示かどうかを判定
+    function isMobileView() {
+      return window.innerWidth < 768;
+    }
+    
+    // 詳細モーダルを表示する関数
+    function showDetailModal(itemIndex, company) {
+      const item = currentFilteredData[itemIndex];
+      if (!item) return;
+      
+      const modal = document.getElementById('detail-modal');
+      const modalTitle = document.getElementById('modal-title');
+      const modalContent = document.getElementById('modal-content');
+      
+      let companyName, colorName, productCode, characteristics;
+      
+      switch (company) {
+        case 'rock':
+          companyName = 'ロックペイント';
+          colorName = item['ロックペイント色名'];
+          productCode = item['ロックペイント品番'];
+          characteristics = item['ロックペイント　原色特性'];
+          break;
+        case 'kansai':
+          companyName = '関西ペイント';
+          colorName = item['関西ペイント色名'];
+          productCode = item['関西ペイント品番'];
+          characteristics = null;
+          break;
+        case 'nippon':
+          companyName = '日本ペイント';
+          colorName = item['日本ペイント色名'];
+          productCode = item['日本ペイント品番'];
+          characteristics = null;
+          break;
+        case 'isamu':
+          companyName = 'イサム塗料';
+          colorName = item['イサム塗料色名'];
+          productCode = item['イサム塗料品番'];
+          characteristics = null;
+          break;
       }
       
-      // アプリを起動
+      modalTitle.textContent = `${companyName} - ${colorName || 'データなし'}`;
+      
+      // 品番を安全に表示
+      const displayCode = productCode !== null && productCode !== undefined ? String(productCode) : 'データなし';
+      
+      let content = `
+        <div class="flex items-center mb-4">
+          <div class="w-12 h-12 rounded-full mr-4 ${getColorFromName(colorName, item['カテゴリ'])}"></div>
+          <div>
+            <h4 class="font-semibold text-lg">${colorName || 'データなし'}</h4>
+            <p class="text-sm text-gray-600">品番: ${displayCode}</p>
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <p class="text-sm text-gray-600">カテゴリ: ${item['カテゴリ'] || ''}</p>
+          <p class="text-sm text-gray-600">番号: ${item['番号'] || ''}</p>
+        </div>
+      `;
+      
+      if (characteristics) {
+        const characteristicsList = characteristics.split(' | ').map(char => `<p>• ${char.trim()}</p>`).join('');
+        content += `
+          <div class="bg-blue-50 rounded-lg p-4">
+            <h5 class="font-semibold text-gray-800 mb-2">原色特性</h5>
+            <div class="text-sm text-gray-700 space-y-1">
+              ${characteristicsList}
+            </div>
+          </div>
+        `;
+      } else {
+        content += `
+          <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-sm text-gray-600">この色の詳細特性データはありません。</p>
+          </div>
+        `;
+      }
+      
+      // 互換色情報を追加
+      const compatibleColors = [];
+      if (item['関西ペイント色名'] && company !== 'kansai') {
+        const kansaiCode = item['関西ペイント品番'] !== null && item['関西ペイント品番'] !== undefined ? String(item['関西ペイント品番']) : '';
+        compatibleColors.push(`関西ペイント: ${item['関西ペイント色名']} (${kansaiCode})`);
+      }
+      if (item['ロックペイント色名'] && company !== 'rock') {
+        const rockCode = item['ロックペイント品番'] !== null && item['ロックペイント品番'] !== undefined ? String(item['ロックペイント品番']) : '';
+        compatibleColors.push(`ロックペイント: ${item['ロックペイント色名']} (${rockCode})`);
+      }
+      if (item['日本ペイント色名'] && company !== 'nippon') {
+        const nipponCode = item['日本ペイント品番'] !== null && item['日本ペイント品番'] !== undefined ? String(item['日本ペイント品番']) : '';
+        compatibleColors.push(`日本ペイント: ${item['日本ペイント色名']} (${nipponCode})`);
+      }
+      if (item['イサム塗料色名'] && company !== 'isamu') {
+        const isamuCode = item['イサム塗料品番'] !== null && item['イサム塗料品番'] !== undefined ? String(item['イサム塗料品番']) : '';
+        compatibleColors.push(`イサム塗料: ${item['イサム塗料色名']} (${isamuCode})`);
+      }
+      
+      if (compatibleColors.length > 0) {
+        const compatibleList = compatibleColors.map(color => `<p>• ${color}</p>`).join('');
+        content += `
+          <div class="mt-4 bg-green-50 rounded-lg p-4">
+            <h5 class="font-semibold text-gray-800 mb-2">互換色</h5>
+            <div class="text-sm text-gray-700 space-y-1">
+              ${compatibleList}
+            </div>
+          </div>
+        `;
+      }
+      
+      modalContent.innerHTML = content;
+      modal.classList.remove('hidden');
+    }
+    
+    // モーダルを閉じる関数
+    function closeModal() {
+      document.getElementById('detail-modal').classList.add('hidden');
+    }
+    
+    // クリックハンドラー関数
+    function handleColorClick(itemIndex, company) {
+      showDetailModal(itemIndex, company);
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchInput = document.getElementById('search');
+      const categoryFilter = document.getElementById('category');
+      const companyFilter = document.getElementById('company');
+      const resultCount = document.getElementById('result-count');
+      const noResults = document.getElementById('no-results');
+      const mobileResults = document.getElementById('mobile-results');
+      const resultTable = document.getElementById('result-table');
+      const closeModalBtn = document.getElementById('close-modal');
+      const modal = document.getElementById('detail-modal');
+      
+      // モーダル関連のイベントリスナー
+      closeModalBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          closeModal();
+        }
+      });
+      
+      // Escapeキーでモーダルを閉じる
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          closeModal();
+        }
+      });
+      
+      function renderApp() {
+        const mobile = isMobileView();
+        
+        // カテゴリ選択肢を設定
+        const categories = [...new Set(data.map(item => item['カテゴリ']).filter(Boolean))];
+        categoryFilter.innerHTML = '<option value="">すべて</option>' + 
+          categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+        
+        // 表示/非表示を切り替え
+        if (mobile) {
+          mobileResults.classList.remove('hidden');
+          document.getElementById('desktop-container').classList.add('hidden');
+        } else {
+          mobileResults.classList.add('hidden');
+          document.getElementById('desktop-container').classList.remove('hidden');
+        }
+        
+        filterData();
+      }
+      
+      function createColorElement(item, index, company, mobile = false) {
+        let companyName, colorName, productCode;
+        
+        switch (company) {
+          case 'kansai':
+            companyName = '関西';
+            colorName = item['関西ペイント色名'];
+            productCode = item['関西ペイント品番'];
+            break;
+          case 'rock':
+            companyName = 'ロック';
+            colorName = item['ロックペイント色名'];
+            productCode = item['ロックペイント品番'];
+            break;
+          case 'nippon':
+            companyName = '日本';
+            colorName = item['日本ペイント色名'];
+            productCode = item['日本ペイント品番'];
+            break;
+          case 'isamu':
+            companyName = 'イサム';
+            colorName = item['イサム塗料色名'];
+            productCode = item['イサム塗料品番'];
+            break;
+        }
+        
+        // 品番と色名の両方またはどちらかが存在しない場合は表示しない
+        if (!productCode && !colorName) return '';
+        
+        // 品番を文字列として表示（数値の場合も含む）
+        const displayCode = productCode !== null && productCode !== undefined ? String(productCode) : '';
+        const displayName = colorName || '';
+        
+        const colorClass = getColorFromName(colorName, item['カテゴリ']);
+        const clickHandler = `handleColorClick(${index}, '${company}')`;
+        
+        if (mobile) {
+          return `
+            <div class="flex items-center p-2 bg-gray-50 rounded clickable-color" onclick="${clickHandler}">
+              <div class="w-6 h-6 rounded-full mr-2 ${colorClass}"></div>
+              <div>
+                <div class="font-medium">${companyName}: ${displayCode}</div>
+                <div class="text-xs text-gray-500">${displayName}</div>
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="flex items-center clickable-color" onclick="${clickHandler}">
+              <div class="w-6 h-6 rounded-full mr-2 ${colorClass}"></div>
+              <div>
+                <div class="font-medium">${displayCode}</div>
+                <div class="text-sm text-gray-500">${displayName}</div>
+              </div>
+            </div>
+          `;
+        }
+      }
+      
+      function filterData() {
+        const mobile = isMobileView();
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedCategory = categoryFilter.value;
+        const selectedCompany = companyFilter.value;
+        
+        let filtered = data;
+        
+        if (selectedCategory) {
+          filtered = filtered.filter(item => item['カテゴリ'] === selectedCategory);
+        }
+        
+        if (selectedCompany) {
+          let companyCodeField, companyNameField;
+          
+          switch (selectedCompany) {
+            case 'kansai':
+              companyCodeField = '関西ペイント品番';
+              companyNameField = '関西ペイント色名';
+              break;
+            case 'rock':
+              companyCodeField = 'ロックペイント品番';
+              companyNameField = 'ロックペイント色名';
+              break;
+            case 'nippon':
+              companyCodeField = '日本ペイント品番';
+              companyNameField = '日本ペイント色名';
+              break;
+            case 'isamu':
+              companyCodeField = 'イサム塗料品番';
+              companyNameField = 'イサム塗料色名';
+              break;
+          }
+          
+          filtered = filtered.filter(item => {
+            // 品番または色名のどちらかが存在すればOK（nullやundefinedでなければ）
+            return (item[companyCodeField] !== null && item[companyCodeField] !== undefined) || 
+                   (item[companyNameField] !== null && item[companyNameField] !== undefined && item[companyNameField] !== '');
+          });
+        }
+        
+        if (searchTerm) {
+          filtered = filtered.filter(item => {
+            // 検索対象の値を安全に文字列に変換してから検索
+            const safeString = (value) => {
+              if (value === null || value === undefined) return '';
+              return String(value).toLowerCase();
+            };
+            
+            return (
+              safeString(item['カテゴリ']).includes(searchTerm) ||
+              safeString(item['関西ペイント品番']).includes(searchTerm) ||
+              safeString(item['関西ペイント色名']).includes(searchTerm) ||
+              safeString(item['ロックペイント品番']).includes(searchTerm) ||
+              safeString(item['ロックペイント色名']).includes(searchTerm) ||
+              safeString(item['日本ペイント品番']).includes(searchTerm) ||
+              safeString(item['日本ペイント色名']).includes(searchTerm) ||
+              safeString(item['イサム塗料品番']).includes(searchTerm) ||
+              safeString(item['イサム塗料色名']).includes(searchTerm) ||
+              safeString(item['番号']).includes(searchTerm)
+            );
+          });
+        }
+        
+        currentFilteredData = filtered;
+        resultCount.textContent = `検索結果: ${filtered.length} 件`;
+        
+        if (filtered.length === 0) {
+          if (mobile && mobileResults) mobileResults.innerHTML = '';
+          if (resultTable) resultTable.innerHTML = '';
+          noResults.classList.remove('hidden');
+        } else {
+          noResults.classList.add('hidden');
+          
+          if (mobile && mobileResults) {
+            mobileResults.innerHTML = filtered.map((item, index) => `
+              <div class="bg-white rounded-lg shadow p-3 border border-gray-100">
+                <div class="flex justify-between items-start mb-2">
+                  <div class="text-sm text-gray-500">${item['カテゴリ'] || ''}</div>
+                  <div class="text-xs bg-gray-100 rounded px-2 py-1">No.${item['番号'] || ''}</div>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-2">
+                  ${createColorElement(item, index, 'kansai', true)}
+                  ${createColorElement(item, index, 'rock', true)}
+                  ${createColorElement(item, index, 'nippon', true)}
+                  ${createColorElement(item, index, 'isamu', true)}
+                </div>
+              </div>
+            `).join('');
+          } else if (resultTable) {
+            resultTable.innerHTML = filtered.map((item, index) => `
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2 whitespace-nowrap">${item['番号'] || ''}</td>
+                <td class="px-4 py-2 whitespace-nowrap">${item['カテゴリ'] || ''}</td>
+                <td class="px-4 py-2">${createColorElement(item, index, 'kansai', false)}</td>
+                <td class="px-4 py-2">${createColorElement(item, index, 'rock', false)}</td>
+                <td class="px-4 py-2">${createColorElement(item, index, 'nippon', false)}</td>
+                <td class="px-4 py-2">${createColorElement(item, index, 'isamu', false)}</td>
+              </tr>
+            `).join('');
+          }
+        }
+      }
+      
+      // イベントリスナーの設定
+      if (searchInput) searchInput.addEventListener('input', filterData);
+      if (categoryFilter) categoryFilter.addEventListener('change', filterData);
+      if (companyFilter) companyFilter.addEventListener('change', filterData);
+      
+      // ウィンドウサイズ変更時の処理
+      window.addEventListener('resize', () => {
+        renderApp();
+      });
+      
+      // 最初の読み込み時にもloadCSVを呼び出す
       loadCSV();
     });
+    
+    // アプリを起動（ページ読み込み完了後）
+    // loadCSV(); // この行は削除（DOMContentLoadedイベント内で呼び出すため）
     
     // Service Workerの登録
     if ('serviceWorker' in navigator) {
