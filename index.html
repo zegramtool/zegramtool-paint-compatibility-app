@@ -375,12 +375,28 @@
     
     // renderApp関数をグローバルスコープに移動
     function renderApp() {
+      console.log('renderApp()開始 - データ件数:', data.length);
+      
       const mobile = isMobileView();
+      console.log('モバイル表示:', mobile);
+      
       const categoryFilter = document.getElementById('category');
       const mobileResults = document.getElementById('mobile-results');
       
+      if (!categoryFilter) {
+        console.error('categoryFilter要素が見つかりません');
+        return;
+      }
+      
+      if (!mobileResults) {
+        console.error('mobileResults要素が見つかりません');
+        return;
+      }
+      
       // カテゴリ選択肢を設定
       const categories = [...new Set(data.map(item => item['カテゴリ']).filter(Boolean))];
+      console.log('カテゴリ数:', categories.length, categories.join(','));
+      
       categoryFilter.innerHTML = '<option value="">すべて</option>' + 
         categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
       
@@ -388,15 +404,77 @@
       if (mobile) {
         mobileResults.classList.remove('hidden');
         document.getElementById('desktop-container').classList.add('hidden');
+        console.log('モバイル表示に切り替え');
       } else {
         mobileResults.classList.add('hidden');
         document.getElementById('desktop-container').classList.remove('hidden');
+        console.log('デスクトップ表示に切り替え');
       }
       
-      // filterData関数を呼び出し
-      if (window.filterDataFunction) {
-        window.filterDataFunction();
+      // 初期データを表示するため、直接filterDataを呼び出す
+      console.log('初期データ表示のためfilterDataを直接呼び出し');
+      renderInitialData();
+    }
+    
+    // 初期データ表示関数
+    function renderInitialData() {
+      console.log('renderInitialData()開始');
+      
+      const mobile = isMobileView();
+      const mobileResults = document.getElementById('mobile-results');
+      const resultTable = document.getElementById('result-table');
+      const resultCount = document.getElementById('result-count');
+      const noResults = document.getElementById('no-results');
+      
+      // currentFilteredDataを初期化
+      currentFilteredData = data;
+      resultCount.textContent = `検索結果: ${data.length} 件`;
+      
+      console.log('初期表示データ数:', data.length);
+      
+      if (data.length === 0) {
+        if (mobile && mobileResults) mobileResults.innerHTML = '';
+        if (resultTable) resultTable.innerHTML = '';
+        noResults.classList.remove('hidden');
+        console.log('データが0件のため、no-resultsを表示');
+      } else {
+        noResults.classList.add('hidden');
+        
+        if (mobile && mobileResults) {
+          console.log('モバイル用データを生成中...');
+          mobileResults.innerHTML = data.map((item, index) => `
+            <div class="bg-white rounded-lg shadow p-3 border border-gray-100">
+              <div class="flex justify-between items-start mb-2">
+                <div class="text-sm text-gray-500">${item['カテゴリ'] || ''}</div>
+                <div class="text-xs bg-gray-100 rounded px-2 py-1">No.${item['番号'] || ''}</div>
+              </div>
+              
+              <div class="grid grid-cols-1 gap-2">
+                ${createColorElement(item, index, 'kansai', true)}
+                ${createColorElement(item, index, 'rock', true)}
+                ${createColorElement(item, index, 'nippon', true)}
+                ${createColorElement(item, index, 'isamu', true)}
+              </div>
+            </div>
+          `).join('');
+          console.log('モバイル用データ生成完了');
+        } else if (resultTable) {
+          console.log('デスクトップ用データを生成中...');
+          resultTable.innerHTML = data.map((item, index) => `
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2 whitespace-nowrap">${item['番号'] || ''}</td>
+              <td class="px-4 py-2 whitespace-nowrap">${item['カテゴリ'] || ''}</td>
+              <td class="px-4 py-2">${createColorElement(item, index, 'kansai', false)}</td>
+              <td class="px-4 py-2">${createColorElement(item, index, 'rock', false)}</td>
+              <td class="px-4 py-2">${createColorElement(item, index, 'nippon', false)}</td>
+              <td class="px-4 py-2">${createColorElement(item, index, 'isamu', false)}</td>
+            </tr>
+          `).join('');
+          console.log('デスクトップ用データ生成完了');
+        }
       }
+      
+      console.log('renderInitialData()完了');
     }
     
     // createColorElement関数をグローバルスコープに移動
