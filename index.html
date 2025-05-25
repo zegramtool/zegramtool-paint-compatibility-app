@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>塗料互換表検索</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- CSP対応のため、PapaParseを使わずに独自のCSV解析を使用 -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .color-red { background-color: #ef4444; }
@@ -152,6 +152,71 @@
   <script>
     let data = [];
     let currentFilteredData = [];
+    
+    // CSP対応のCSV解析関数
+    function parseCSVText(csvText) {
+      const lines = csvText.split('\n');
+      if (lines.length === 0) return { data: [], meta: { fields: [] } };
+      
+      // ヘッダー行を解析
+      const headers = lines[0].split(',').map(header => header.trim().replace(/\r$/, ''));
+      
+      // データ行を解析
+      const data = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue; // 空行をスキップ
+        
+        const values = parseCSVLine(line);
+        if (values.length === 0) continue;
+        
+        const row = {};
+        headers.forEach((header, index) => {
+          let value = values[index] || '';
+          value = value.trim().replace(/\r$/, '');
+          
+          // 数値変換を試行
+          if (value !== '' && !isNaN(value) && !isNaN(parseFloat(value))) {
+            row[header] = parseFloat(value);
+          } else if (value === '') {
+            row[header] = null;
+          } else {
+            row[header] = value;
+          }
+        });
+        
+        data.push(row);
+      }
+      
+      return {
+        data: data,
+        meta: { fields: headers },
+        errors: []
+      };
+    }
+    
+    // CSV行を解析する関数（カンマ区切り、引用符対応）
+    function parseCSVLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      result.push(current);
+      return result;
+    }
     
     // CSVデータを読み込み
     async function loadCSV() {
