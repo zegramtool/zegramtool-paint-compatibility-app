@@ -689,6 +689,8 @@
       const closeModalBtn = document.getElementById('close-modal');
       const modal = document.getElementById('detail-modal');
       const csvFileInput = document.getElementById('csv-file');
+      const loadDefaultBtn = document.getElementById('load-default-csv');
+      const loadSampleBtn = document.getElementById('load-sample-data');
       
       // ファイル選択時の処理
       csvFileInput.addEventListener('change', function(event) {
@@ -704,6 +706,18 @@
             </div>
           `;
         }
+      });
+      
+      // デフォルトCSV読み込みボタン
+      loadDefaultBtn.addEventListener('click', function() {
+        console.log('デフォルトCSV読み込みボタンがクリックされました');
+        loadDefaultCSV();
+      });
+      
+      // サンプルデータ読み込みボタン
+      loadSampleBtn.addEventListener('click', function() {
+        console.log('サンプルデータ読み込みボタンがクリックされました');
+        loadSampleData();
       });
       
       // モーダル関連のイベントリスナー
