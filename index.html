@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>塗料互換表検索</title>
+  <meta name="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; connect-src 'self';">
   <!-- CSP対応のため、PapaParseを使わずに独自のCSV解析を使用 -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -267,57 +268,78 @@
       try {
         statusDiv.innerHTML = '<div class="text-blue-600">データを解析中...</div>';
         
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: (header) => {
-            // ヘッダーの前後の空白を削除
-            return header.trim();
-          },
-          complete: function(results) {
-            console.log('Papa Parse結果:', results);
-            
-            if (results.errors && results.errors.length > 0) {
-              console.warn('解析警告:', results.errors);
-            }
-            
-            if (!results.data || results.data.length === 0) {
-              throw new Error('有効なデータが見つかりません');
-            }
-            
-            // データをフィルタリング（番号があるもののみ）
-            const validData = results.data.filter(row => {
-              return row['番号'] !== null && row['番号'] !== undefined && row['番号'] !== '';
-            });
-            
-            console.log('全データ数:', results.data.length);
-            console.log('有効データ数:', validData.length);
-            console.log('サンプルデータ:', validData.slice(0, 3));
-            
-            if (validData.length === 0) {
-              throw new Error('「番号」フィールドを持つ有効なデータが見つかりません');
-            }
-            
-            data = validData;
-            statusDiv.innerHTML = `
-              <div class="text-green-600">
-                <p><strong>読み込み完了!</strong></p>
-                <p>データ件数: ${data.length} 件</p>
-              </div>
-            `;
-            
-            renderApp();
-          },
-          error: function(error) {
-            throw new Error(`CSV解析エラー: ${error.message}`);
-          }
+        // 独自のCSV解析関数を使用（Papa.parseは削除）
+        const results = parseCSVText(csvText);
+        
+        console.log('CSV解析結果:', results);
+        console.log('ヘッダー:', results.meta.fields);
+        console.log('総データ数:', results.data.length);
+        
+        if (!results.data || results.data.length === 0) {
+          throw new Error('有効なデータが見つかりません');
+        }
+        
+        // 最初の5件のデータをログに出力
+        console.log('最初の5件のデータ:');
+        results.data.slice(0, 5).forEach((row, index) => {
+          console.log(`データ${index + 1}:`, row);
         });
+        
+        // 番号フィールドの存在確認
+        const numberField = results.data.find(row => row['番号'] !== null && row['番号'] !== undefined && row['番号'] !== '');
+        console.log('番号フィールドがあるデータの例:', numberField);
+        
+        // データをフィルタリング（番号があるもののみ）
+        const validData = results.data.filter(row => {
+          const hasNumber = row['番号'] !== null && row['番号'] !== undefined && row['番号'] !== '';
+          if (!hasNumber && row !== results.data[results.data.length - 1]) { // 最後の行でなければログ出力
+            console.log('番号なしデータ:', row);
+          }
+          return hasNumber;
+        });
+        
+        console.log('全データ数:', results.data.length);
+        console.log('有効データ数:', validData.length);
+        
+        // 各メーカーのデータ数をチェック
+        const kansaiCount = validData.filter(row => row['関西ペイント色名'] || row['関西ペイント品番']).length;
+        const rockCount = validData.filter(row => row['ロックペイント色名'] || row['ロックペイント品番']).length;
+        const nipponCount = validData.filter(row => row['日本ペイント色名'] || row['日本ペイント品番']).length;
+        const isamuCount = validData.filter(row => row['イサム塗料色名'] || row['イサム塗料品番']).length;
+        
+        console.log('メーカー別データ数:');
+        console.log('関西ペイント:', kansaiCount);
+        console.log('ロックペイント:', rockCount);
+        console.log('日本ペイント:', nipponCount);
+        console.log('イサム塗料:', isamuCount);
+        
+        if (validData.length === 0) {
+          throw new Error('「番号」フィールドを持つ有効なデータが見つかりません');
+        }
+        
+        data = validData;
+        statusDiv.innerHTML = `
+          <div class="text-green-600">
+            <p><strong>読み込み完了!</strong></p>
+            <p>データ件数: ${data.length} 件</p>
+            <div class="text-xs mt-1">
+              <p>関西ペイント: ${kansaiCount}件 | ロックペイント: ${rockCount}件</p>
+              <p>日本ペイント: ${nipponCount}件 | イサム塗料: ${isamuCount}件</p>
+            </div>
+          </div>
+        `;
+        
+        // デバッグ用：グローバル変数に保存
+        window.debugData = data;
+        
+        renderApp();
         
       } catch (error) {
         console.error('CSV解析エラー:', error);
         statusDiv.innerHTML = `
           <div class="text-red-600">
             <p><strong>解析エラー:</strong> ${error.message}</p>
+            <p class="text-xs mt-1">コンソール（Option + Command + I）で詳細を確認してください</p>
           </div>
         `;
       }
@@ -486,6 +508,23 @@
       const resultTable = document.getElementById('result-table');
       const closeModalBtn = document.getElementById('close-modal');
       const modal = document.getElementById('detail-modal');
+      const csvFileInput = document.getElementById('csv-file');
+      
+      // ファイル選択時の処理
+      csvFileInput.addEventListener('change', function(event) {
+        console.log('ファイル選択イベント発生');
+        if (this.files && this.files.length > 0) {
+          console.log('ファイルが選択されました:', this.files[0].name);
+          loadCSV();
+        } else {
+          console.log('ファイルが選択されていません');
+          document.getElementById('file-status').innerHTML = `
+            <div class="text-gray-600">
+              📋 CSVファイルを選択してください
+            </div>
+          `;
+        }
+      });
       
       // モーダル関連のイベントリスナー
       closeModalBtn.addEventListener('click', closeModal);
@@ -709,6 +748,9 @@
       window.addEventListener('resize', () => {
         renderApp();
       });
+      
+      // グローバル関数として登録
+      window.handleColorClick = handleColorClick;
       
       // 最初の読み込み時にもloadCSVを呼び出す
       loadCSV();
