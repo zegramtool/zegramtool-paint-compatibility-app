@@ -332,8 +332,8 @@
         // デバッグ用：グローバル変数に保存
         window.debugData = data;
         
-        // renderApp()の代わりに、カスタムイベントを発火
-        window.dispatchEvent(new CustomEvent('dataLoaded'));
+        // データ読み込み完了後、直接renderApp()を呼び出し
+        renderApp();
         
       } catch (error) {
         console.error('CSV解析エラー:', error);
@@ -371,6 +371,106 @@
     // モバイル表示かどうかを判定
     function isMobileView() {
       return window.innerWidth < 768;
+    }
+    
+    // renderApp関数をグローバルスコープに移動
+    function renderApp() {
+      const mobile = isMobileView();
+      const categoryFilter = document.getElementById('category');
+      const mobileResults = document.getElementById('mobile-results');
+      
+      // カテゴリ選択肢を設定
+      const categories = [...new Set(data.map(item => item['カテゴリ']).filter(Boolean))];
+      categoryFilter.innerHTML = '<option value="">すべて</option>' + 
+        categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+      
+      // 表示/非表示を切り替え
+      if (mobile) {
+        mobileResults.classList.remove('hidden');
+        document.getElementById('desktop-container').classList.add('hidden');
+      } else {
+        mobileResults.classList.add('hidden');
+        document.getElementById('desktop-container').classList.remove('hidden');
+      }
+      
+      // filterData関数を呼び出し
+      if (window.filterDataFunction) {
+        window.filterDataFunction();
+      }
+    }
+    
+    // createColorElement関数をグローバルスコープに移動
+    function createColorElement(item, index, company, mobile = false) {
+      let companyName, colorName, productCode, characteristics;
+      
+      switch (company) {
+        case 'kansai':
+          companyName = '関西';
+          colorName = item['関西ペイント色名'];
+          productCode = item['関西ペイント品番'];
+          characteristics = item['関西ペイント　原色特性'];
+          break;
+        case 'rock':
+          companyName = 'ロック';
+          colorName = item['ロックペイント色名'];
+          productCode = item['ロックペイント品番'];
+          characteristics = item['ロックペイント　原色特性'];
+          break;
+        case 'nippon':
+          companyName = '日本';
+          colorName = item['日本ペイント色名'];
+          productCode = item['日本ペイント品番'];
+          characteristics = item['日本ペイント　原色特性'];
+          break;
+        case 'isamu':
+          companyName = 'イサム';
+          colorName = item['イサム塗料色名'];
+          productCode = item['イサム塗料品番'];
+          characteristics = item['イサム塗料　原色特性'];
+          break;
+      }
+      
+      // 品番と色名の両方またはどちらかが存在しない場合は表示しない
+      if (!productCode && !colorName) return '';
+      
+      // 品番を文字列として表示（数値の場合も含む）
+      const displayCode = productCode !== null && productCode !== undefined ? String(productCode) : '';
+      const displayName = colorName || '';
+      
+      // 原色特性があるかどうかのインジケーター
+      const hasCharacteristics = characteristics && characteristics.trim() !== '';
+      const characteristicsIcon = hasCharacteristics ? '<span class="text-blue-500 text-xs">⭐</span>' : '';
+      
+      const colorClass = getColorFromName(colorName, item['カテゴリ']);
+      const clickHandler = `handleColorClick(${index}, '${company}')`;
+      
+      if (mobile) {
+        return `
+          <div class="flex items-center p-2 bg-gray-50 rounded clickable-color" onclick="${clickHandler}">
+            <div class="w-6 h-6 rounded-full mr-2 ${colorClass}"></div>
+            <div class="flex-1">
+              <div class="font-medium flex items-center gap-1">
+                ${companyName}: ${displayCode}
+                ${characteristicsIcon}
+              </div>
+              <div class="text-xs text-gray-500">${displayName}</div>
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="flex items-center clickable-color" onclick="${clickHandler}">
+            <div class="w-6 h-6 rounded-full mr-2 ${colorClass}"></div>
+            <div>
+              <div class="font-medium flex items-center gap-1">
+                ${displayCode}
+                ${characteristicsIcon}
+              </div>
+              <div class="text-sm text-gray-500">${displayName}</div>
+            </div>
+          </div>
+        `;
+      }
     }
     
     // 詳細モーダルを表示する関数
