@@ -729,6 +729,21 @@
     // グローバル関数として登録
     window.handleColorClick = handleColorClick;
     
+    // 12345.csvを自動で読み込む関数
+    async function autoLoadCSV() {
+      const statusDiv = document.getElementById('file-status');
+      try {
+        statusDiv.innerHTML = '<div class="text-blue-600">12345.csvを読み込み中...</div>';
+        const response = await fetch('./12345.csv');
+        if (!response.ok) throw new Error('CSVファイルが見つかりません');
+        const csvText = await response.text();
+        if (!csvText.trim()) throw new Error('ファイルが空です');
+        parseCSV(csvText);
+      } catch (error) {
+        statusDiv.innerHTML = `<div class="text-red-600">自動読み込みエラー: ${error.message}</div>`;
+      }
+    }
+    
     // DOMContentLoaded イベント
     document.addEventListener('DOMContentLoaded', function() {
       console.log('DOM読み込み完了');
@@ -802,6 +817,9 @@
           </div>
         `;
       }
+
+      // 自動で12345.csvを読み込む
+      autoLoadCSV();
     });
     
     // Service Workerの登録
